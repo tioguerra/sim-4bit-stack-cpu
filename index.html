@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador — Processador 4 bits com Pilha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;         /* slate-900 */
+      --card: #111827;       /* gray-900 */
+      --muted: #94a3b8;      /* slate-400 */
+      --text: #e5e7eb;       /* gray-200 */
+      --accent: #22d3ee;     /* cyan-400 */
+      --accent-2: #a78bfa;   /* violet-400 */
+      --ok: #34d399;         /* emerald-400 */
+      --warn: #f59e0b;       /* amber-500 */
+      --err: #f87171;        /* red-400 */
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; padding: 0; background: radial-gradient(1200px 800px at 70% -10%, rgba(167,139,250,0.12), transparent),
+                 radial-gradient(900px 700px at -10% -10%, rgba(34,211,238,0.10), transparent), var(--bg);
+      color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    .container { max-width: 1200px; margin: 24px auto 80px; padding: 0 16px; }
+    .title { font-weight: 800; font-size: 28px; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; }
+    .subtitle { color: var(--muted); margin-top: 6px; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-top: 20px; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .card-header { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-weight: 700; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase; color: var(--muted); }
+    .card-body { padding: 16px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    textarea, input[type="text"] { width: 100%; background: #0b1022; border: 1px solid rgba(255,255,255,0.08); color: var(--text); border-radius: 12px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; }
+    textarea { min-height: 80px; resize: vertical; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      background: linear-gradient(180deg, rgba(34,211,238,0.15), rgba(34,211,238,0.05));
+      border: 1px solid rgba(34,211,238,0.35);
+      color: #cffafe; padding: 10px 12px; border-radius: 12px; font-weight: 700; letter-spacing: 0.02em; font-size: 13px; cursor: pointer;
+      transition: transform 0.05s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .btn:hover { box-shadow: 0 10px 24px rgba(34,211,238,0.25); }
+    .btn:active { transform: translateY(1px); }
+    .btn.alt { background: linear-gradient(180deg, rgba(167,139,250,0.15), rgba(167,139,250,0.05)); border-color: rgba(167,139,250,0.35); color: #ede9fe; }
+    .btn.warn { background: linear-gradient(180deg, rgba(245,158,11,0.18), rgba(245,158,11,0.07)); border-color: rgba(245,158,11,0.45); color: #fffbeb; }
+    .btn.err { background: linear-gradient(180deg, rgba(248,113,113,0.20), rgba(248,113,113,0.08)); border-color: rgba(248,113,113,0.50); color: #fee2e2; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .regs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .pill { background: #0b1022; border: 1px solid rgba(255,255,255,0.08); padding: 8px 10px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; font-family: ui-monospace, monospace; font-size: 13px; }
+    .pill b { color: #c7d2fe; }
+
+    .mem-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; max-height: 260px; overflow: auto; padding-right: 4px; }
+    .cell { background: #0b1022; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 18px 8px 12px; min-height: 54px; text-align: center; font-family: ui-monospace, monospace; font-size: 13px; position: relative; }
+    .cell .addr { position: absolute; top: 6px; left: 8px; font-size: 10px; color: var(--muted); } 
+    .cell .value { display: block; margin-top: 4px; font-size: 16px; }
+    .cell.active { outline: 2px solid var(--accent); box-shadow: 0 0 0 4px rgba(34,211,238,0.15); }
+
+    .stack { display: flex; gap: 6px; flex-wrap: wrap; }
+    .stk { background: #0b1022; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 6px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
+
+    .log { height: 300px; overflow: auto; background: #0a0f20; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px; font-family: ui-monospace, monospace; }
+    .log-entry { padding: 6px 8px; border-bottom: 1px dashed rgba(255,255,255,0.06); white-space: pre-wrap; }
+    .log-entry:last-child { border-bottom: none; }
+    .tag { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 999px; margin-right: 6px; }
+    .tag.step { background: rgba(34,211,238,0.15); border: 1px solid rgba(34,211,238,0.35); color: #a5f3fc; }
+    .tag.print { background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.35); color: #bbf7d0; }
+    .tag.warn { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.35); color: #fde68a; }
+    .tag.err { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.35); color: #fecaca; }
+
+    .kbd { font-family: ui-monospace, monospace; font-size: 11px; background: #0b1022; border: 1px solid rgba(255,255,255,0.12); border-bottom-width: 2px; padding: 2px 6px; border-radius: 6px; }
+
+    .footer { margin-top: 16px; font-size: 12px; color: var(--muted); }
+    .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .chip { background: #0b1022; border: 1px solid rgba(255,255,255,0.12); padding: 4px 8px; border-radius: 999px; font-family: ui-monospace, monospace; cursor: pointer; font-size: 12px; }
+    .chip:hover { border-color: rgba(34,211,238,0.55); }
+
+    /* ISA grid */
+    .isa-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px 12px; font-size: 12px; color: var(--text); }
+    .isa-grid b { color: #a5b4fc; }
+
+    /* Stack panel with more space */
+    .stack-panel { background: #0b1022; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 6px; max-height: 160px; overflow: auto; }
+    .stack { display: flex; gap: 6px; flex-wrap: wrap; }
+    .stk { background: #0b1022; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 6px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
+    .chip { background: #0b1022; border: 1px solid rgba(255,255,255,0.12); padding: 4px 8px; border-radius: 999px; font-family: ui-monospace, monospace; cursor: pointer; font-size: 12px; }
+    .chip:hover { border-color: rgba(34,211,238,0.55); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3h12a2 2 0 0 1 2 2v5H4V5a2 2 0 0 1 2-2Zm-2 9h16v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5Z" stroke="#22d3ee" stroke-width="1.5"/></svg>
+      Simulador — Processador 4&nbsp;bits com Pilha
+    </div>
+    <div class="subtitle">Carregue uma sequência de palavras (0–15 em decimal ou 0x0–0xF em hexadecimal), execute passo a passo (<span class="kbd">Step</span>) ou até <i>halt</i> (<span class="kbd">Run</span>). Aritmética módulo 16; divisão inteira. Memória: palavras de 4 bits; o PC cresce sem wrap (programas podem ter mais de 16 palavras).</div>
+
+    <!-- Resumo rápido da ISA (16 instruções) -->
+    <div class="card" style="margin-top:12px;">
+      <div class="card-body" style="padding:12px 16px;">
+        <div class="card-title" style="margin-bottom:8px;">Resumo rápido das instruções (0x0–0xF)</div>
+        <div class="isa-grid">
+          <div><b>00</b> — encerra</div>
+          <div><b>01</b> — R0←R0+R1</div>
+          <div><b>02</b> — R0←R0−R1</div>
+          <div><b>03</b> — R0←R0×R1</div>
+          <div><b>04</b> — R0←R0/R1 (inteira)</div>
+          <div><b>05</b> — push(R0)</div>
+          <div><b>06</b> — R0←pop()</div>
+          <div><b>07</b> — R1←pop()</div>
+          <div><b>08</b> — saída←R0</div>
+          <div><b>09 k</b> — R0←k</div>
+          <div><b>0A</b> — (R0,R1)←(R1,R0)</div>
+          <div><b>0B k</b> — mem[k]←R0</div>
+          <div><b>0C k</b> — push(k)</div>
+          <div><b>0D k</b> — PC←k</div>
+          <div><b>0E k</b> — se R0==0 ⇒ PC←k</div>
+          <div><b>0F k</b> — se R0!=0 ⇒ PC←k</div>
+    </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Programa</div>
+          <div class="row">
+            <button id="btnLoad" class="btn">Carregar programa</button>
+            <button id="btnReset" class="btn alt" title="Limpa CPU, pilha e log">Reset</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <label for="code">Sequência (separada por espaços, vírgulas ou quebras de linha)</label>
+          <textarea id="code" placeholder="Ex.: 12 2 12 3 01 08 00   (pushi 2, pushi 3, add, print, halt)"></textarea>
+          <div class="hint">Dica: instruções de 2 palavras: <b>09, 11, 12, 13, 14, 15</b> (seguem-se de imediato 0–15). As demais usam 1 palavra.
+            <div class="examples">
+              <span class="chip" data-eg="12 2 12 3 01 08 00">(2 + 3) → print</span>
+              <span class="chip" data-eg="12 5 12 3 02 08 00">(5 − 3) → print</span>
+              <span class="chip" data-eg="12 4 12 2 03 08 00">(4 × 2) → print</span>
+              <span class="chip" data-eg="12 12 12 3 04 08 00">(12 ÷ 3) → print</span>
+              <span class="chip" data-eg="12 5 12 0 14 15 08 00">JZ para 15 se R0==0; print; halt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Execução</div>
+          <div class="row">
+            <button id="btnStep" class="btn">Step</button>
+            <button id="btnRun" class="btn">Run até halt</button>
+            <button id="btnPause" class="btn warn">Pausar</button>
+            <button id="btnClearLog" class="btn err">Limpar Log</button>
+          </div>
+        </div>
+        <div class="card-body two-col">
+          <div>
+            <div class="regs">
+              <div class="pill"><b>R0</b> <span id="r0">0</span></div>
+              <div class="pill"><b>R1</b> <span id="r1">0</span></div>
+              <div class="pill"><b>PC</b> <span id="pc">0</span></div>
+            </div>
+            <div style="margin-top:12px">
+              <label>Pilha (topo à direita) — tamanho: <span id="stackDepth">0</span></label>
+              <div class="stack-panel"><div id="stack" class="stack"></div></div>
+            </div>
+            <div style="margin-top:12px">
+              <label>Saída (prints)</label>
+              <input id="output" type="text" readonly placeholder="Valores impressos aparecerão aqui" />
+            </div>
+            
+          </div>
+          <div>
+            <label>Memória</label>
+            <div id="mem" class="mem-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header"><div class="card-title">Log de execução</div></div>
+      <div class="card-body">
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+
+    <div class="footer">ISA conforme enunciado (halt=00, add=01, sub=02, mul=03, div=04, push=05, popr0=06, popr1=07, print=08, loadi=09, swap=10, store=11, pushi=12, jmp=13, jz=14, jnz=15). Aritmética módulo 16; divisão inteira.
+    </div>
+  </div>
+
+  <script>
+    // ------- CPU State -------
+    const CPU = {
+      R0: 0, R1: 0, PC: 0,
+      halted: false,
+      mem: [],
+      stack: [],
+      outputs: [],
+      stepCount: 0,
+    };
+
+    // ------- UI helpers -------
+    const el = id => document.getElementById(id);
+    const r0El = el('r0'), r1El = el('r1'), pcEl = el('pc');
+    const memEl = el('mem'), stackEl = el('stack'), outputEl = el('output'), logEl = el('log');
+
+    function clamp4(x) { return ((x % 16) + 16) % 16; }
+
+    const MN = {
+      0x00:'halt', 0x01:'add', 0x02:'sub', 0x03:'mul', 0x04:'div', 0x05:'push', 0x06:'popr0', 0x07:'popr1',
+      0x08:'print',0x09:'loadi',0x0A:'swap',0x0B:'store',0x0C:'pushi',0x0D:'jmp', 0x0E:'jz',   0x0F:'jnz'
+    };
+
+    const SIZE = {
+      0x09:2, 0x0B:2, 0x0C:2, 0x0D:2, 0x0E:2, 0x0F:2
+    };
+
+    function resetCPU(clearMem=false) {
+      CPU.R0 = 0; CPU.R1 = 0; CPU.PC = 0; CPU.halted = false; CPU.stack = []; CPU.outputs = []; CPU.stepCount = 0;
+      if (clearMem) CPU.mem = [];
+      render();
+      logEl.innerHTML = '';
+    }
+
+    function render() {
+      r0El.textContent = CPU.R0;
+      r1El.textContent = CPU.R1;
+      pcEl.textContent = CPU.PC;
+
+      // stack (top to the right)
+      const depthEl = document.getElementById('stackDepth');
+      if (depthEl) depthEl.textContent = CPU.stack.length;
+      stackEl.innerHTML = '';
+      CPU.stack.forEach((v) => {
+        const s = document.createElement('div'); s.className = 'stk'; s.textContent = v; stackEl.appendChild(s);
+      });
+
+      // memory grid (dynamic length)
+      memEl.innerHTML = '';
+      const displayLen = Math.max(16, CPU.mem.length, CPU.PC + 1);
+      for (let i=0;i<displayLen;i++) {
+        const c = document.createElement('div'); c.className = 'cell' + (i===CPU.PC? ' active':'');
+        const addr = document.createElement('div'); addr.className = 'addr'; addr.textContent = i.toString(10).padStart(2,'0');
+        const val = document.createElement('div'); val.className = 'value'; val.textContent = (CPU.mem[i] ?? 0);
+        c.appendChild(addr); c.appendChild(val); memEl.appendChild(c);
+      }
+
+      outputEl.value = CPU.outputs.join(' ');
+    }
+
+    function log(type, msg) {
+      const e = document.createElement('div'); e.className = 'log-entry';
+      const tag = document.createElement('span'); tag.className = 'tag ' + type; tag.textContent = type.toUpperCase();
+      e.appendChild(tag); e.appendChild(document.createTextNode(' ' + msg));
+      logEl.appendChild(e); logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function decodeAt(pc) {
+      if (pc >= CPU.mem.length) { for (let k = CPU.mem.length; k <= pc; k++) CPU.mem[k] = 0; }
+      const op = CPU.mem[pc] ?? 0;
+      const mnem = MN[op] ?? '???';
+      const hasArg = SIZE[op] === 2;
+      const arg = hasArg ? (CPU.mem[pc+1] ?? 0) : undefined;
+      return { op, mnem, hasArg, arg };
+    }
+
+    function step() {
+      if (CPU.halted) { log('warn', 'CPU já está em HALT'); return; }
+      const pc0 = CPU.PC;
+      const { op, mnem, hasArg, arg } = decodeAt(pc0);
+
+      CPU.stepCount++;
+
+      // Default: advance PC by instr size; may be overridden by jumps
+      let nextPC = (pc0 + (SIZE[op] || 1));
+
+      try {
+        switch (op) {
+          case 0x00: // halt
+            CPU.halted = true;
+            log('step', `HALT @${pc0}`);
+            break;
+          case 0x01: // add
+            CPU.R0 = clamp4(CPU.R0 + CPU.R1);
+            log('step', `ADD  R0←R0+R1 = ${CPU.R0}`);
+            break;
+          case 0x02: // sub
+            CPU.R0 = clamp4(CPU.R0 - CPU.R1);
+            log('step', `SUB  R0←R0−R1 = ${CPU.R0}`);
+            break;
+          case 0x03: // mul
+            CPU.R0 = clamp4(CPU.R0 * CPU.R1);
+            log('step', `MUL  R0←R0×R1 = ${CPU.R0}`);
+            break;
+          case 0x04: // div (trunc)
+            if (CPU.R1 === 0) { CPU.R0 = 0; log('warn', 'DIV por zero ⇒ R0←0'); }
+            else { CPU.R0 = clamp4(Math.trunc(CPU.R0 / CPU.R1)); log('step', `DIV  R0←R0/R1 = ${CPU.R0}`); }
+            break;
+          case 0x05: // push R0
+            if (CPU.stack.length >= 16) { throw new Error('Stack overflow'); }
+            CPU.stack.push(CPU.R0);
+            log('step', `PUSH  ${CPU.R0}`);
+            break;
+          case 0x06: // pop -> R0
+            if (CPU.stack.length === 0) { throw new Error('Stack underflow (popr0)'); }
+            CPU.R0 = clamp4(CPU.stack.pop());
+            log('step', `POPR0 ⇒ ${CPU.R0}`);
+            break;
+          case 0x07: // pop -> R1
+            if (CPU.stack.length === 0) { throw new Error('Stack underflow (popr1)'); }
+            CPU.R1 = clamp4(CPU.stack.pop());
+            log('step', `POPR1 ⇒ ${CPU.R1}`);
+            break;
+          case 0x08: // print R0
+            CPU.outputs.push(CPU.R0);
+            log('print', `PRINT ${CPU.R0}`);
+            
+            break;
+          case 0x09: // loadi arg -> R0
+            CPU.R0 = clamp4(arg);
+            log('step', `LOADI R0←${arg}`);
+            break;
+          case 0x0A: // swap R0,R1
+            [CPU.R0, CPU.R1] = [CPU.R1, CPU.R0];
+            log('step', `SWAP  R0↔R1 ⇒ R0=${CPU.R0}, R1=${CPU.R1}`);
+            break;
+          case 0x0B: // store R0 into mem[arg]
+            CPU.mem[arg & 0x0F] = CPU.R0 & 0x0F;
+            log('step', `STORE mem[${arg&0x0F}]←${CPU.R0}`);
+            break;
+          case 0x0C: // pushi arg
+            if (CPU.stack.length >= 16) { throw new Error('Stack overflow'); }
+            CPU.stack.push(arg & 0x0F);
+            log('step', `PUSHI ${arg&0x0F}`);
+            break;
+          case 0x0D: // jmp arg
+            nextPC = (arg & 0x0F);
+            log('step', `JMP   PC←${nextPC}`);
+            break;
+          case 0x0E: // jz arg (if R0==0)
+            if (CPU.R0 === 0) { nextPC = (arg & 0x0F); log('step', `JZ    R0==0 ⇒ PC←${nextPC}`); }
+            else { log('step', `JZ    R0!=0 ⇒ segue`); }
+            break;
+          case 0x0F: // jnz arg (if R0!=0)
+            if (CPU.R0 !== 0) { nextPC = (arg & 0x0F); log('step', `JNZ   R0!=0 ⇒ PC←${nextPC}`); }
+            else { log('step', `JNZ   R0==0 ⇒ segue`); }
+            break;
+          default:
+            throw new Error(`Opcode inválido ${op} @${pc0}`);
+        }
+      } catch (e) {
+        log('err', e.message);
+        CPU.halted = true;
+      }
+
+      CPU.PC = nextPC;
+      render();
+    }
+
+    // Run loop
+    let runTimer = null;
+    function startRun() {
+      if (runTimer) return;
+      runTimer = setInterval(() => {
+        if (CPU.halted) { stopRun(); return; }
+        // guard against infinite loops: soft cap steps
+        if (CPU.stepCount > 2000) { log('err', 'Interrompido (passos > 2000)'); CPU.halted = true; stopRun(); return; }
+        step();
+      }, 120);
+    }
+    function stopRun() { if (runTimer) { clearInterval(runTimer); runTimer = null; } }
+
+    // Parse input into memory words [0..15]
+    function parseWords(text) {
+      const toks = text.replace(/[,\n\t]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+      const words = toks.map(tok => {
+        let v;
+        if (/^0x[0-9a-f]+$/i.test(tok)) v = parseInt(tok, 16);
+        else v = parseInt(tok, 10);
+        if (Number.isNaN(v) || v < 0 || v > 15) throw new Error(`Palavra inválida: ${tok} (use 0–15 ou 0x0–0xF)`);
+        return v & 0x0F;
+      });
+      return words;
+    }
+
+    // UI bindings
+    el('btnLoad').addEventListener('click', () => {
+      try {
+        const words = parseWords(el('code').value);
+        resetCPU(true);
+        CPU.mem = words.slice();
+        render();
+        log('step', `Programa carregado (${words.length} palavras na memória)`);
+      } catch (e) { log('err', e.message); }
+    });
+
+    el('btnReset').addEventListener('click', () => { resetCPU(false); log('step', 'Reset'); });
+    el('btnStep').addEventListener('click', step);
+    el('btnRun').addEventListener('click', () => { if (!CPU.halted) startRun(); });
+    el('btnPause').addEventListener('click', () => { stopRun(); log('step', 'Pausado'); });
+    el('btnClearLog').addEventListener('click', () => { logEl.innerHTML = ''; });
+
+    // Example chips
+    document.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
+      el('code').value = ch.dataset.eg;
+    }));
+
+    // First render
+    resetCPU(true);
+    render();
+  </script>
+</body>
+</html>
